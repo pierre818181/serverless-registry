@@ -6,6 +6,7 @@ export type RegistryAuthProtocolTokenPayload = {
   username: string;
   account_id?: string;
   capabilities: RegistryTokenCapability[];
+  imageName ?: string;
   exp: number;
   aud: string;
   iat?: number;
@@ -28,6 +29,7 @@ export function stripUsernamePasswordFromHeader(r: Request): [string, string] | 
     // missing authorization header
     // do not log this. the /v2/ sends this request without any credentials to do version checking
     // we do not want to remove /v2/ from the auth middleware as well
+    console.log("no authorization header");
     return { verified: false, payload: null };
   }
 
