@@ -9,7 +9,10 @@ import {
 
 export function importKeyFromBase64(key: string): string {
   // Decodes the base64 value and performs unicode normalization.
-  return decode(key);
+  console.log(key)
+  const decoded = decode(key);
+  console.log(decoded, "decoded")
+  return decoded
 }
 
 export async function newRegistryTokens(jwtPublicKey: string): Promise<RegistryTokens> {
@@ -86,6 +89,7 @@ export class RegistryTokens implements Authenticator {
     payload: RegistryAuthProtocolTokenPayload | null;
   }> {
     try {
+      console.log(token, "received token")
       // first verify the JWT
       if (!(await jwt.verify(token, this.jwtPublicKey, { algorithm: "RS256" }))) {
         console.warn("verifyToken: jwt.verify() failed");

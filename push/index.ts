@@ -1,4 +1,4 @@
-import { $, CryptoHasher, file, write } from "bun";
+import { $, CryptoHasher, file, sleep, write } from "bun";
 import { extract } from "tar";
 
 import stream from "node:stream";
@@ -286,7 +286,6 @@ async function pushLayer(layerDigest: string, readableStream: ReadableStream, to
     throw new Error(`oci-chunk-max-length header is malformed (not a number)`);
   }
 
-  const reader = readableStream.getReader();
   const uploadId = createUploadResponse.headers.get("docker-upload-uuid");
   if (uploadId === null) {
     throw new Error("Docker-Upload-UUID not defined in headers");
@@ -306,6 +305,9 @@ async function pushLayer(layerDigest: string, readableStream: ReadableStream, to
   let written = 0;
   let previousReadable: ReadableLimiter | undefined;
   let totalLayerSizeLeft = totalLayerSize;
+  const reader = readableStream.getReader();
+  let fail = "true";
+  let failures = 0;
   while (totalLayerSizeLeft > 0) {
     const range = `0-${Math.min(end, totalLayerSize) - 1}`;
     const current = new ReadableLimiter(reader as ReadableStreamDefaultReader, maxToWrite, previousReadable);
@@ -319,13 +321,19 @@ async function pushLayer(layerDigest: string, readableStream: ReadableStream, to
         "range": range,
         "authorization": cred,
         "content-length": `${Math.min(totalLayerSizeLeft, maxToWrite)}`,
+        "x-fail": fail,
       }),
     });
     if (!patchChunkResult.ok) {
-      throw new Error(
-        `uploading chunk ${patchChunkUploadURL} returned ${patchChunkResult.status}: ${await patchChunkResult.text()}`,
-      );
+      previousReadable = current;
+      console.error(`${layerDigest}: Pushing ${range} failed with ${patchChunkResult.status}, retrying`);
+      await sleep(500);
+      if (failures++ >= 2) fail = "false";
+      continue;
     }
+
+    fail = "true";
+    current.ok();
 
     const rangeResponse = patchChunkResult.headers.get("range");
     if (rangeResponse !== range) {
@@ -343,18 +351,22 @@ async function pushLayer(layerDigest: string, readableStream: ReadableStream, to
   const range = `0-${written - 1}`;
   const uploadURL = new URL(parseLocation(location));
   uploadURL.searchParams.append("digest", layerDigest);
-  const response = await fetch(uploadURL.toString(), {
-    method: "PUT",
-    headers: new Headers({
-      Range: range,
-      Authorization: cred,
-    }),
-  });
-  if (!response.ok) {
-    throw new Error(`${uploadURL.toString()} failed with ${response.status}: ${await response.text()}`);
-  }
+  for (let tries = 0; tries < 3; tries++) {
+    const response = await fetch(uploadURL.toString(), {
+      method: "PUT",
+      headers: new Headers({
+        Range: range,
+        Authorization: cred,
+      }),
+    });
+    if (!response.ok) {
+      console.error(`${layerDigest}: Finishing ${range} failed with ${response.status}, retrying`);
+      continue;
+    }
 
-  console.log("Pushed", layerDigest);
+    console.log("Pushed", layerDigest);
+    return;
+  }
 }
 
 const layersManifest = [] as {
