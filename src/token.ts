@@ -123,6 +123,7 @@ export class RegistryTokens implements Authenticator {
     switch (request.method) {
       // PULL or PUSH methods
       case "HEAD":
+        console.log(payload, "payload")
         // HEAD requests can be used by pushers like docker
         if (!payload.capabilities.includes("pull") || !payload.capabilities.includes("push")) {
           console.warn(
