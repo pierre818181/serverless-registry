@@ -71,7 +71,7 @@ if ((await file(tarFile).exists())) {
   console.log(`Image saved as ${tarFile}, extracting...`);
 
   try{
-    await readdir("./tmp");
+    await readdir(imagePath);
   } catch{
     await mkdir(imagePath); 
   }
