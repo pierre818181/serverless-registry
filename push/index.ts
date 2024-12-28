@@ -1,5 +1,6 @@
 import { $, CryptoHasher, file, sleep, write } from "bun";
 import { extract } from "tar";
+import { readdir } from "node:fs/promises"
 
 import stream from "node:stream";
 import { mkdir } from "node:fs/promises";
@@ -69,7 +70,11 @@ if ((await file(tarFile).exists())) {
 
   console.log(`Image saved as ${tarFile}, extracting...`);
 
-  await mkdir(imagePath);
+  try{
+    await readdir("./tmp");
+  } catch{
+    await mkdir(imagePath); 
+  }
 
   const result = await extract({
     file: tarFile,
@@ -245,6 +250,7 @@ const tag =
 
 import fetchNode from "node-fetch";
 import { ReadableLimiter } from "./limiter";
+import { dir } from "node:console";
 
 const cred = `Basic ${btoa(`${username}:${password}`)}`;
 
