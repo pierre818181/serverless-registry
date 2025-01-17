@@ -140,7 +140,11 @@ import { rename, rm } from "node:fs/promises";
 
 const cacheFolder = imagePath;
 
-await mkdir(cacheFolder, { recursive: true });
+try {
+  await mkdir(cacheFolder, { recursive: true });
+} catch (e) {
+  console.error('directory most likely already exists.')
+}
 
 // const [manifest] = manifests;
 const tasks = [];
